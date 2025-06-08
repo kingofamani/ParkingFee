@@ -1,0 +1,50 @@
+# 專案待辦事項 (TODO)
+
+## 後端 (Flask)
+- [x] 建立 Flask 應用程式 (`app.py`)。
+- [x] 建立一個路由 (`/`) 來提供 `index.html`。
+- [x] 建立 API 端點 (`/query`) 接收前端的單一縣市查詢請求。
+    - [x] 接收 `city`, `carId`, `carType` 參數。
+    - [x] 建立縣市名稱與對應 API URL 的字典。
+    - [x] 根據 `city` 參數，向正確的外部 API 發送請求。
+    - [x] 處理外部 API 的回應 (成功/失敗/逾時)。
+    - [x] 將結果回傳給前端。
+- [x] 建立 API 端點 (`/query-all`) 接收前端的全國查詢請求。
+    - [x] 遍歷所有縣市的 API。
+    - [x] 每次 API 呼叫之間需間隔 1 秒。
+    - [x] 為每次 API 呼叫設定 2 秒的超時 (已調整為5秒)。
+    - [x] 彙總所有查詢結果並回傳給前端。
+- [x] 建立 `requirements.txt` 並加入 `Flask` 和 `requests`。
+
+## 前端 (HTML/CSS/JS)
+- [x] **HTML (`templates/index.html`)**
+    - [x] 建立網頁基本骨架。
+    - [x] 建立縣市下拉選單。
+    - [x] 建立車牌號碼輸入框。
+    - [x] 建立車種選擇器 (Radio buttons 或下拉選單)。
+    - [x] 建立「查詢」和「一鍵查詢全國」按鈕。
+    - [x] 建立顯示查詢結果的區域。
+- [x] **CSS (`static/css/style.css`)**
+    - [x] 編寫 RWD 樣式，使介面適應不同螢幕尺寸。
+    - [x] 設定頁面長寬為螢幕的 100%。
+    - [x] 美化整體介面。
+- [x] **JavaScript (`static/js/main.js`)**
+    - [x] **頁面初始化**
+        - [x] 網頁載入後，使用 `navigator.geolocation` 取得使用者經緯度。
+        - [x] 呼叫 Nominatim API 將經緯度轉換為縣市名稱。
+        - [x] 將獲取到的縣市設定為下拉選單的預設選項。
+        - [x] 處理使用者不同意或無法取得位置的例外情況。
+    - [x] **事件監聽**
+        - [x] 綁定「查詢」按鈕的點擊事件。
+        - [x] 綁定「一鍵查詢全國」按鈕的點擊事件。
+    - [x] **API 呼叫**
+        - [x] 撰寫函式，用 `fetch` 呼叫後端 `/query` API。
+        - [x] 撰寫函式，用 `fetch` 呼叫後端 `/query-all` API。
+    - [x] **結果處理**
+        - [x] 將從後端收到的資料動態呈現在結果區域。
+        - [x] 將查詢結果儲存到 Local Storage。
+        - [x] 實作從 Local Storage 讀取歷史紀錄的功能 (可選)。
+
+## 其他
+- [x] 建立 `.gitignore` 檔案以忽略不必要的檔案。
+- [x] 撰寫 `README.md` 說明文件。 

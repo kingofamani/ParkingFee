@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全國路邊停車費查詢</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>全國路邊停車費查詢</h1>
+        </header>
+        <main>
+            <div class="query-form">
+                <form id="parking-form">
+                    <div class="form-group">
+                        <label for="city-select">縣市</label>
+                        <select id="city-select" name="city">
+                            <option value="">請選擇縣市</option>
+                            {% for city in cities %}
+                                <option value="{{ city }}">{{ city }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="car-id">車牌號碼</label>
+                        <input type="text" id="car-id" name="carId" placeholder="例如：ABC-1234" required>
+                    </div>
+                    <div class="form-group">
+                        <label>車種</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="carType" value="C" checked> 汽車</label>
+                            <label><input type="radio" name="carType" value="M"> 機車</label>
+                            <label><input type="radio" name="carType" value="O"> 其他</label>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" id="query-btn">查詢指定縣市</button>
+                        <button type="button" id="query-all-btn">一鍵查詢全國</button>
+                    </div>
+                </form>
+            </div>
+            <div id="results-area" class="results-area">
+                <!-- 查詢結果將會顯示在這裡 -->
+            </div>
+        </main>
+        <footer>
+            <p>Data provided by local government Open APIs.</p>
+        </footer>
+    </div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html> 

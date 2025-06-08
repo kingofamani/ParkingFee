@@ -153,6 +153,10 @@ main {
     font-size: 0.8rem;
 }
 
+.error-badge {
+    background-color: #dc3545;
+}
+
 .card-body p {
     margin: 0.5rem 0;
     line-height: 1.6;
@@ -169,6 +173,33 @@ main {
     font-size: 1.1rem;
     font-weight: bold;
     color: #c82333;
+}
+
+/* Styles for "no data" cities */
+.no-data-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 1rem;
+    background-color: #fff;
+    border-radius: 8px;
+}
+
+.city-chip {
+    background-color: #e9ecef;
+    color: #495057;
+    padding: 0.5rem 1rem;
+    border-radius: 16px;
+    font-size: 0.9rem;
+}
+
+/* Styles for error cards */
+.error-card {
+    border-left: 5px solid #dc3545;
+}
+
+.error-title {
+    color: #dc3545;
 }
 
 /* Message Styles */

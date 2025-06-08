@@ -63,6 +63,19 @@ function setCityByGeolocation() {
     );
 }
 
+// --- NEW BATCH PROCESSING HELPER FUNCTION ---
+async function runPromisesInBatches(promiseFactories, batchSize) {
+    let results = [];
+    let index = 0;
+    while (index < promiseFactories.length) {
+        const batch = promiseFactories.slice(index, index + batchSize);
+        const batchResults = await Promise.all(batch.map(factory => factory()));
+        results = results.concat(batchResults);
+        index += batchSize;
+    }
+    return results;
+}
+
 async function handleQuery(allCities = false) {
     const form = document.getElementById('parking-form');
     const carIdInput = document.getElementById('car-id');
@@ -81,42 +94,72 @@ async function handleQuery(allCities = false) {
     showLoading(true, allCities);
 
     if (allCities) {
-        // --- NEW LOGIC FOR ALL CITIES (FRONTEND-DRIVEN) ---
+        // --- UPDATED LOGIC FOR ALL CITIES WITH BATCHING ---
         const cities = Array.from(citySelect.options)
-            .map(option => option.value)
-            .filter(value => value); // Filter out the empty value from "請選擇縣市"
+            .map(option => ({ name: option.text, value: option.value }))
+            .filter(city => city.value);
 
-        const promises = cities.map(city =>
+        // --- Progressive UI Update ---
+        // Clear previous results and show a list of cities being queried
+        resultsArea.innerHTML = '';
+        const progressContainer = document.createElement('div');
+        progressContainer.className = 'progress-container';
+        resultsArea.appendChild(progressContainer);
+
+        cities.forEach(city => {
+            const progressItem = document.createElement('div');
+            progressItem.className = 'progress-item';
+            progressItem.id = `progress-${city.value}`;
+            progressItem.innerHTML = `<span>${city.name}</span><div class="spinner tiny"></div>`;
+            progressContainer.appendChild(progressItem);
+        });
+        // --- End Progressive UI Update ---
+
+        const promiseFactories = cities.map(city => () => // Create functions that return promises
             fetch('/api/query', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ carId, carType, city })
+                body: JSON.stringify({ carId, carType, city: city.value })
             })
             .then(async response => {
                 if (!response.ok) {
-                    return { status: 'error', city: city, message: `伺服器錯誤: ${response.status}` };
+                    return { status: 'error', city: city.name, value: city.value, message: `伺服器錯誤: ${response.status}` };
                 }
-                const data = await response.json();
-                // Check if the response indicates any actual data payload
+                const data = await response.json().catch(() => null);
+                 if (!data) {
+                    return { status: 'error', city: city.name, value: city.value, message: 'API未回傳有效的JSON資料' };
+                }
                 const hasData = (data.Result && data.Result.Bills && data.Result.Bills.length > 0) ||
                                 (data.PayBillList && data.PayBillList.length > 0) ||
                                 (data.Data && data.Data.length > 0);
                 
                 if (hasData) {
-                    return { status: 'success', city: city, data: data };
+                    return { status: 'success', city: city.name, value: city.value, data: data };
                 } else {
-                    return { status: 'success_nodata', city: city, data: null };
+                    return { status: 'success_nodata', city: city.name, value: city.value, data: null };
                 }
             })
             .catch(error => {
-                // Catches network errors or other issues with the fetch itself
-                return { status: 'error', city: city, message: `查詢失敗: ${error.message}` };
+                return { status: 'error', city: city.name, value: city.value, message: `查詢失敗: ${error.message}` };
+            })
+            .then(result => {
+                // --- Update individual progress item ---
+                const progressItem = document.getElementById(`progress-${result.value}`);
+                if (progressItem) {
+                    let statusIcon = '';
+                    if (result.status === 'success') statusIcon = '<span class="status-icon success">✔</span>';
+                    else if (result.status === 'success_nodata') statusIcon = '<span class="status-icon nodata">◌</span>';
+                    else if (result.status === 'error') statusIcon = '<span class="status-icon error">✖</span>';
+                    progressItem.innerHTML = `<span>${result.city}</span>${statusIcon}`;
+                }
+                return result; // Pass the result on
             })
         );
         
         try {
-            const results = await Promise.all(promises);
-            displayResults(results);
+            // Set batch size to 5
+            const results = await runPromisesInBatches(promiseFactories, 5);
+            displayResults(results, true); // Pass a flag to indicate all-cities results
             saveToLocalStorage({ query: { carId, carType, allCities: true }, results });
         } catch (error) {
             console.error('All Cities Query Error:', error);
@@ -158,11 +201,10 @@ async function handleQuery(allCities = false) {
 function showLoading(isLoading, allCities = false) {
     const resultsArea = document.getElementById('results-area');
     if (isLoading) {
-        let loadingHTML = '<div class="spinner"></div>';
-        if (allCities) {
-            loadingHTML += '<p class="info-message">正在查詢全國所有縣市，請稍候...</p>';
+        // For single city query, we can keep the old spinner logic
+        if (!allCities) {
+            resultsArea.innerHTML = '<div class="spinner"></div>';
         }
-        resultsArea.innerHTML = loadingHTML;
     } else {
         // Clear spinner if it exists, but don't clear results
         const spinner = resultsArea.querySelector('.spinner');
@@ -172,9 +214,13 @@ function showLoading(isLoading, allCities = false) {
     }
 }
 
-function displayResults(data) {
+function displayResults(data, isAllCitiesResult = false) {
     const resultsArea = document.getElementById('results-area');
-    resultsArea.innerHTML = ''; // Clear previous results or spinner
+    
+    // For all-cities, we don't clear the progressive results, we append to them.
+    if (!isAllCitiesResult) {
+        resultsArea.innerHTML = ''; // Clear previous results or spinner
+    }
 
     if (data.error) {
         resultsArea.innerHTML = `<p class="error-message">${data.error}</p>`;
@@ -187,6 +233,10 @@ function displayResults(data) {
 
     // This is now the standard for all-cities query
     if (Array.isArray(data)) { 
+        // Hide the progress container before showing final results
+        const progressContainer = resultsArea.querySelector('.progress-container');
+        if (progressContainer) progressContainer.style.display = 'none';
+
         data.forEach(cityResult => {
             if (cityResult.status === "success" && cityResult.data) {
                 const cityData = cityResult.data;
@@ -273,7 +323,10 @@ function displayResults(data) {
     }
 
     if (allBills.length === 0 && noDataCities.length === 0 && errorCities.length === 0) {
-        resultsArea.innerHTML = `<p class="info-message">查無任何縣市的待繳停車費資料。</p>`;
+        // Check if it was an all-cities query, if so, the progressive UI already showed no results.
+        if (!isAllCitiesResult) {
+             resultsArea.innerHTML = `<p class="info-message">查無任何縣市的待繳停車費資料。</p>`;
+        }
         return;
     }
     

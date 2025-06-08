@@ -67,52 +67,91 @@ async function handleQuery(allCities = false) {
     const form = document.getElementById('parking-form');
     const carIdInput = document.getElementById('car-id');
     const resultsArea = document.getElementById('results-area');
-    
-    // Simple validation
-    if (!allCities && !form.elements.city.value) {
-        alert('請選擇一個縣市');
-        return;
-    }
+    const citySelect = document.getElementById('city-select');
+
     if (!carIdInput.value.trim()) {
         alert('請輸入車牌號碼');
         carIdInput.focus();
         return;
     }
 
-    const formData = {
-        carId: carIdInput.value.trim().toUpperCase(),
-        carType: form.elements.carType.value
-    };
-
-    let endpoint = '/api/query';
-    if (allCities) {
-        endpoint = '/api/query-all';
-    } else {
-        formData.city = form.elements.city.value;
-    }
+    const carId = carIdInput.value.trim().toUpperCase();
+    const carType = form.elements.carType.value;
 
     showLoading(true, allCities);
 
-    try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(formData)
-        });
+    if (allCities) {
+        // --- NEW LOGIC FOR ALL CITIES (FRONTEND-DRIVEN) ---
+        const cities = Array.from(citySelect.options)
+            .map(option => option.value)
+            .filter(value => value); // Filter out the empty value from "請選擇縣市"
 
-        if (!response.ok) {
-            throw new Error(`伺服器錯誤，狀態碼: ${response.status}`);
+        const promises = cities.map(city =>
+            fetch('/api/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ carId, carType, city })
+            })
+            .then(async response => {
+                if (!response.ok) {
+                    return { status: 'error', city: city, message: `伺服器錯誤: ${response.status}` };
+                }
+                const data = await response.json();
+                // Check if the response indicates any actual data payload
+                const hasData = (data.Result && data.Result.Bills && data.Result.Bills.length > 0) ||
+                                (data.PayBillList && data.PayBillList.length > 0) ||
+                                (data.Data && data.Data.length > 0);
+                
+                if (hasData) {
+                    return { status: 'success', city: city, data: data };
+                } else {
+                    return { status: 'success_nodata', city: city, data: null };
+                }
+            })
+            .catch(error => {
+                // Catches network errors or other issues with the fetch itself
+                return { status: 'error', city: city, message: `查詢失敗: ${error.message}` };
+            })
+        );
+        
+        try {
+            const results = await Promise.all(promises);
+            displayResults(results);
+            saveToLocalStorage({ query: { carId, carType, allCities: true }, results });
+        } catch (error) {
+            console.error('All Cities Query Error:', error);
+            displayResults({ error: '查詢全國時發生未預期錯誤。' });
         }
 
-        const data = await response.json();
-        displayResults(data);
-        
-        // Save successful query to Local Storage
-        saveToLocalStorage({ query: formData, results: data });
+    } else {
+        // --- EXISTING LOGIC FOR SINGLE CITY ---
+        const city = citySelect.value;
+        if (!city) {
+            alert('請選擇一個縣市');
+            showLoading(false); // Hide loading since we are not proceeding
+            return;
+        }
 
-    } catch (error) {
-        console.error('Query Error:', error);
-        displayResults({ error: error.message });
+        const formData = { carId, carType, city };
+        try {
+            const response = await fetch('/api/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+
+            if (!response.ok) {
+                throw new Error(`伺服器錯誤，狀態碼: ${response.status}`);
+            }
+
+            const data = await response.json();
+            displayResults(data);
+            saveToLocalStorage({ query: formData, results: data });
+
+        } catch (error) {
+            console.error('Query Error:', error);
+            displayResults({ error: error.message });
+        }
     }
 }
 
